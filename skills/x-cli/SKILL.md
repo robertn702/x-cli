@@ -1,6 +1,6 @@
 ---
 name: x-cli
-description: "Read X (Twitter) with the x CLI — tweets, profiles, timelines, threads, search, follow graphs, trends, and crawls into a local SQLite store you can query with SQL. Use when a task needs X data: looking up a tweet or account, reading a thread or timeline, searching tweets, counting topic activity, listing followers/likers/retweeters, or building and querying a local archive. Strictly read-only; it never posts, likes, or follows."
+description: "Read X (Twitter) with the x CLI — tweets, profiles, timelines, threads, search, follow graphs, trends, and crawls into a local SQLite store you can query with SQL. Use this whenever a task touches X or Twitter data, even if the x CLI is not mentioned: a twitter.com or x.com link to read, a tweet or thread to fetch, a user's tweets or profile to pull, tweet search or counting topic activity over time, followers/likers/retweeters, trending topics, or archiving an account locally for SQL or RDF analysis. Strictly read-only; it never posts, likes, or follows."
 ---
 
 # x CLI
