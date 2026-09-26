@@ -27,6 +27,7 @@ type Tweet struct {
 	Metrics        Metrics   `json:"metrics"`
 	Entities       Entities  `json:"entities,omitempty"`
 	Media          []Media   `json:"media,omitempty"`
+	Article        *Article  `json:"article,omitempty"`
 	Poll           *Poll     `json:"poll,omitempty"`
 	Place          *Place    `json:"place,omitempty"`
 	Source         string    `json:"source,omitempty"`
@@ -46,6 +47,17 @@ type Tweet struct {
 	// widget handed back @jack's most-liked posts from 2006 to 2025, in like
 	// order, and the last week of them is not the last week of anything.
 	Sample bool `json:"sample,omitempty"`
+}
+
+// Article is the long-form X Article linked from a tweet. X returns the body
+// and its inline media on TweetDetail when the reader has a signed-in session.
+// The article id is retained as data, not treated as a separately resolvable
+// API reference: the supported read starts from its tweet.
+type Article struct {
+	ID    string  `json:"id,omitempty"`
+	Title string  `json:"title"`
+	Body  string  `json:"body" kit:"body"`
+	Media []Media `json:"media,omitempty"`
 }
 
 // Metrics are the engagement counts on a tweet.

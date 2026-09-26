@@ -241,6 +241,7 @@ type gqlTweetResult struct {
 	Legacy      *legacyTweet    `json:"legacy"`
 	Views       *gqlViews       `json:"views"`
 	NoteTweet   *gqlNoteTweet   `json:"note_tweet"`
+	Article     *gqlArticleWrap `json:"article"`
 	Quoted      *gqlResultWrap  `json:"quoted_status_result"`
 	EditControl *gqlEditControl `json:"edit_control"`
 	Source      string          `json:"source"`
@@ -269,6 +270,75 @@ type gqlNoteTweet struct {
 			Text string `json:"text"`
 		} `json:"result"`
 	} `json:"note_tweet_results"`
+}
+
+type gqlArticleWrap struct {
+	ArticleResults struct {
+		Result *gqlArticle `json:"result"`
+	} `json:"article_results"`
+}
+
+type gqlArticle struct {
+	RestID        string            `json:"rest_id"`
+	Title         string            `json:"title"`
+	PlainText     string            `json:"plain_text"`
+	MediaEntities []gqlArticleMedia `json:"media_entities"`
+}
+
+type gqlArticleMedia struct {
+	MediaID  string `json:"media_id"`
+	MediaKey string `json:"media_key"`
+	Info     struct {
+		Typename         string `json:"__typename"`
+		OriginalImageURL string `json:"original_img_url"`
+		OriginalImageW   int    `json:"original_img_width"`
+		OriginalImageH   int    `json:"original_img_height"`
+		DurationMillis   int    `json:"duration_millis"`
+		PreviewImage     struct {
+			OriginalImageURL string `json:"original_img_url"`
+			OriginalImageW   int    `json:"original_img_width"`
+			OriginalImageH   int    `json:"original_img_height"`
+		} `json:"preview_image"`
+		Variants []struct {
+			Bitrate     int    `json:"bit_rate"`
+			ContentType string `json:"content_type"`
+			URL         string `json:"url"`
+		} `json:"variants"`
+	} `json:"media_info"`
+}
+
+func (a *gqlArticle) build() *Article {
+	if a == nil {
+		return nil
+	}
+	out := &Article{ID: a.RestID, Title: a.Title, Body: a.PlainText}
+	for _, entity := range a.MediaEntities {
+		m := Media{Key: entity.MediaKey}
+		switch entity.Info.Typename {
+		case "ApiImage":
+			m.Type = "photo"
+			m.URL = entity.Info.OriginalImageURL
+			m.Width = entity.Info.OriginalImageW
+			m.Height = entity.Info.OriginalImageH
+		case "ApiVideo":
+			m.Type = "video"
+			m.Preview = entity.Info.PreviewImage.OriginalImageURL
+			m.Width = entity.Info.PreviewImage.OriginalImageW
+			m.Height = entity.Info.PreviewImage.OriginalImageH
+			m.Duration = entity.Info.DurationMillis
+			for _, variant := range entity.Info.Variants {
+				if variant.URL != "" {
+					m.Variants = append(m.Variants, Variant{
+						Bitrate: variant.Bitrate, ContentType: variant.ContentType, URL: variant.URL,
+					})
+				}
+			}
+		default:
+			continue
+		}
+		out.Media = append(out.Media, m)
+	}
+	return out
 }
 
 type gqlResultWrap struct {
@@ -393,6 +463,9 @@ func (r *gqlTweetResult) build() *Tweet {
 		noteText = r.NoteTweet.NoteTweetResults.Result.Text
 	}
 	t := r.Legacy.toTweet(author, noteText)
+	if r.Article != nil {
+		t.Article = r.Article.ArticleResults.Result.build()
+	}
 	if t.ID == "" {
 		t.Identify(KindTweet, r.RestID)
 	}
@@ -538,23 +611,33 @@ func collectUsers(b []byte) ([]*User, string) {
 
 // ---- single-object reads ----
 
-// TweetByID resolves one tweet via TweetResultByRestId.
+// TweetByID resolves one tweet via TweetResultByRestId for guests and
+// TweetDetail for signed-in sessions. TweetResultByRestId only carries Article
+// metadata; TweetDetail is the surface that includes its title, body and media.
 func (g *GraphQL) TweetByID(ctx context.Context, id string) (*Tweet, error) {
-	b, src, err := g.get(ctx, "TweetResultByRestId", map[string]any{
+	op := "TweetResultByRestId"
+	variables := map[string]any{
 		"tweetId":                id,
 		"withCommunity":          false,
 		"includePromotedContent": false,
 		"withVoice":              false,
-	})
+	}
+	if g.s.IsUser() {
+		op = "TweetDetail"
+		variables = tweetDetailVariables(id, "")
+	}
+	b, src, err := g.get(ctx, op, variables)
 	if err != nil {
 		return nil, err
 	}
 	tweets, _ := collectTweets(b)
-	if len(tweets) == 0 {
-		return nil, &NotFoundError{Kind: "tweet", Ref: id}
+	for _, tweet := range tweets {
+		if tweet.ID == id {
+			stampTweet(tweet, g.surface(), src)
+			return tweet, nil
+		}
 	}
-	stampTweets(tweets, g.surface(), src)
-	return tweets[0], nil
+	return nil, &NotFoundError{Kind: "tweet", Ref: id}
 }
 
 // UserByName resolves a profile via UserByScreenName.
@@ -658,19 +741,23 @@ func (g *GraphQL) Search(ctx context.Context, q SearchQuery, emit func(*Tweet) e
 // Thread streams a conversation via TweetDetail (focal tweet + replies).
 func (g *GraphQL) Thread(ctx context.Context, focalID string, limit int, emit func(*Tweet) error) error {
 	return g.pageTweets(ctx, "TweetDetail", func(cursor string) map[string]any {
-		return map[string]any{
-			"focalTweetId":                           focalID,
-			"cursor":                                 cursor,
-			"referrer":                               "tweet",
-			"with_rux_injections":                    false,
-			"includePromotedContent":                 false,
-			"withCommunity":                          true,
-			"withQuickPromoteEligibilityTweetFields": false,
-			"withBirdwatchNotes":                     false,
-			"withVoice":                              false,
-			"withV2Timeline":                         true,
-		}
+		return tweetDetailVariables(focalID, cursor)
 	}, limit, emit)
+}
+
+func tweetDetailVariables(focalID, cursor string) map[string]any {
+	return map[string]any{
+		"focalTweetId":                           focalID,
+		"cursor":                                 cursor,
+		"referrer":                               "tweet",
+		"with_rux_injections":                    false,
+		"includePromotedContent":                 false,
+		"withCommunity":                          true,
+		"withQuickPromoteEligibilityTweetFields": false,
+		"withBirdwatchNotes":                     false,
+		"withVoice":                              false,
+		"withV2Timeline":                         true,
+	}
 }
 
 // ListTweets streams a List's timeline via ListLatestTweetsTimeline.
