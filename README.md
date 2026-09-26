@@ -26,6 +26,15 @@ x media https://x.com/nasa/status/2064422103416238295 --download .
 x timeline nasa -o url | xargs -n1 x get
 ```
 
+To read a long-form X Article linked from a post, import your X session and
+request the session tier. The result includes `article.title`, `article.body`,
+and `article.media` in JSON output. A direct `/i/article/<id>` URL is not yet
+supported as an input.
+
+```bash
+x --tier session tweet https://x.com/leomeethewoo/status/2103529310208606701 -o json
+```
+
 ## How it works
 
 x speaks only X's own free, public surfaces, the same ones a logged-out browser
