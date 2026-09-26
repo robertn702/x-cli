@@ -269,6 +269,20 @@ func (b *builder) article(s Term, a *Article) {
 	b.add(s, schema("headline"), lit(a.Title))
 	b.add(s, schema("articleBody"), lit(a.Body))
 	b.add(s, schema("url"), iri(a.URL))
+	seen := make(map[string]bool)
+	addMedia := func(m Media) {
+		uri := mediaURI(m)
+		if uri != "" && !seen[uri] {
+			b.media(iri(uri), m)
+			seen[uri] = true
+		}
+	}
+	if a.Cover != nil {
+		addMedia(*a.Cover)
+	}
+	for _, m := range a.Media {
+		addMedia(m)
+	}
 }
 
 // media types a media node properly once there is a record to type it from.

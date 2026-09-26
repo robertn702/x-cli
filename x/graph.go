@@ -327,6 +327,20 @@ func articleEdges(a *Article) []Edge {
 	if a.LinkedPost != nil {
 		e.add(URI(KindTweet, a.LinkedPost.ID), PredLinksTo, self)
 	}
+	seen := make(map[string]bool)
+	addMedia := func(m Media) {
+		uri := mediaURI(m)
+		if uri != "" && !seen[uri] {
+			e.add(self, PredHasMedia, uri)
+			seen[uri] = true
+		}
+	}
+	if a.Cover != nil {
+		addMedia(*a.Cover)
+	}
+	for _, m := range a.Media {
+		addMedia(m)
+	}
 	return e.out
 }
 
