@@ -52,18 +52,20 @@ type Tweet struct {
 	Sample bool `json:"sample,omitempty"`
 }
 
-// Article is the long-form X Article linked from a tweet. X returns the body
-// and its inline media on TweetDetail when the reader has a signed-in session.
-// The article id is retained as data, not treated as a separately resolvable
-// API reference: the supported read starts from its tweet.
+// Article is a long-form X Article. X does not expose a generally usable
+// article-by-id operation: the reader finds its linking post with exact URL
+// search, verifies the embedded article id, then reads that post with
+// TweetDetail.
 type Article struct {
-	ID           string          `json:"id,omitempty"`
-	URL          string          `json:"url,omitempty"`
+	Meta
+
 	Title        string          `json:"title"`
 	Body         string          `json:"body" kit:"body"`
 	ContentState json.RawMessage `json:"content_state,omitempty"`
 	Cover        *Media          `json:"cover,omitempty"`
 	Media        []Media         `json:"media,omitempty"`
+	Author       *User           `json:"author,omitempty"`
+	LinkedPost   *Tweet          `json:"linked_post,omitempty"`
 }
 
 // Metrics are the engagement counts on a tweet.

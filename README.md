@@ -19,6 +19,7 @@ Documentation: <https://x-cli.tamnd.com> (mirror: <https://tamnd.github.io/x-cli
 
 ```bash
 x tweet 20                         # a single tweet
+x article https://x.com/i/article/2103118352554344448  # long-form Article (session)
 x user nasa                        # a profile
 x timeline nasa --guest -n 20      # a user's recent tweets
 x thread 1903142823316049977       # the conversation around it, root first
@@ -26,13 +27,13 @@ x media https://x.com/nasa/status/2064422103416238295 --download .
 x timeline nasa -o url | xargs -n1 x get
 ```
 
-To read a long-form X Article linked from a post, import your X session and
-request the session tier. The result includes `article.title`, `article.body`,
-`article.content_state`, `article.cover`, and `article.media` in JSON output.
-A direct `/i/article/<id>` URL is not yet supported as an input.
+To read a long-form X Article, import your X session and pass its
+`/i/article/<id>` URL or bare Article id. The normalized record includes the
+title, body, structured content, cover and inline media, author, linking post,
+and source metadata.
 
 ```bash
-x --tier session tweet https://x.com/leomeethewoo/status/2103529310208606701 -o json
+x article https://x.com/i/article/2103118352554344448 -o json
 ```
 
 ## How it works
@@ -87,6 +88,7 @@ Tier 0 needs nothing, `g` needs `--guest`, `s` needs a session.
 | --- | --- | --- |
 | `x get <ref>...` | whatever the reference points at, read by the command that fits | 0 |
 | `x tweet <ref>` | a single tweet | 0 |
+| `x article <ref>` | a long-form X Article by URL or id | s |
 | `x user <user>` | a profile | 0 |
 | `x timeline <user>` | a user's tweets (deeper with `--guest`) | 0 |
 | `x thread <ref>` | the conversation around a tweet, root first | 0 |
@@ -108,7 +110,7 @@ Tier 0 needs nothing, `g` needs `--guest`, `s` needs a session.
 | `x query <sql>` | query what you have collected | local |
 
 `x serve` exposes the reads over HTTP as NDJSON, one route each under `/v1/`, and
-`x mcp` exposes the same 24 as MCP tools for an agent. Both take the global
+`x mcp` exposes the same reads as MCP tools for an agent. Both take the global
 flags, so the tier you serve at is the one you pass.
 
 x also says what it knows about itself, from the same tables it routes on:

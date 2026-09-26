@@ -28,6 +28,21 @@ func ParseTweetRef(s string) (string, error) {
 	return "", fmt.Errorf("not a tweet id or status URL: %q", s)
 }
 
+// ParseArticleRef normalizes a bare Article id or an /i/article/<id> URL. Bare
+// digits are accepted here because the command supplies the resource kind;
+// Classify intentionally keeps bare numeric references as tweets.
+func ParseArticleRef(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if numericRe.MatchString(s) {
+		return s, nil
+	}
+	kind, id, err := Classify(s)
+	if err != nil || kind != KindArticle {
+		return "", fmt.Errorf("not an Article id or i/article URL: %q", s)
+	}
+	return id, nil
+}
+
 // ParseUserRef normalizes any accepted user reference to a handle (without the
 // leading @) or, when forceID is set or the value is a profile URL ending in a
 // numeric id, returns the value as-is. The second return reports whether the

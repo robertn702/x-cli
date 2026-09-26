@@ -313,10 +313,8 @@ func (a *gqlArticle) build() *Article {
 	if a == nil {
 		return nil
 	}
-	out := &Article{ID: a.RestID, Title: a.Title, Body: a.PlainText, ContentState: a.ContentState}
-	if a.RestID != "" {
-		out.URL = "https://x.com/i/article/" + a.RestID
-	}
+	out := &Article{Title: a.Title, Body: a.PlainText, ContentState: a.ContentState}
+	out.Identify(KindArticle, a.RestID)
 	if a.CoverMedia != nil {
 		out.Cover = a.CoverMedia.media()
 	}
@@ -658,6 +656,24 @@ func (g *GraphQL) TweetByID(ctx context.Context, id string) (*Tweet, error) {
 		}
 	}
 	return nil, &NotFoundError{Kind: "tweet", Ref: id}
+}
+
+// TweetDetailByID reads one post through the session-only conversation
+// operation. Article lookup uses it after search has identified the linking
+// post, because TweetResultByRestId omits the full article body.
+func (g *GraphQL) TweetDetailByID(ctx context.Context, id string) (*Tweet, error) {
+	b, src, err := g.get(ctx, "TweetDetail", tweetDetailVariables(id, ""))
+	if err != nil {
+		return nil, err
+	}
+	tweets, _ := collectTweets(b)
+	for _, tweet := range tweets {
+		if tweet.ID == id {
+			stampTweet(tweet, g.surface(), src)
+			return tweet, nil
+		}
+	}
+	return nil, &NotFoundError{Kind: KindTweet, Ref: id}
 }
 
 // UserByName resolves a profile via UserByScreenName.

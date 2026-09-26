@@ -59,6 +59,7 @@ https://x.com/search?q=%24TSLA	cashtag	tsla
 https://x.com/search?q=from%3Ajack+since%3A2024-01-01	search	from:jack since:2024-01-01
 
 # the /i routes
+https://x.com/i/article/2103118352554344448	article	2103118352554344448
 https://x.com/i/lists/1418136314401153025	list	1418136314401153025
 https://x.com/i/spaces/1YpKkZWmvvvGj	space	1YpKkZWmvvvGj
 https://x.com/i/spaces/1YpKkZWmvvvGj/peek	space	1YpKkZWmvvvGj
@@ -83,6 +84,7 @@ https://x.com/settings/account	link	https/x.com/settings/account
 
 # x:// addresses classify back to themselves
 x://tweet/20	tweet	20
+x://article/2103118352554344448	article	2103118352554344448
 x://user/jack	user	jack
 x://conversation/1833951636005552366	conversation	1833951636005552366
 x://media/3_2080776588996563188	media	3_2080776588996563188

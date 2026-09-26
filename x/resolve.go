@@ -442,6 +442,55 @@ func (e *Engine) Search(ctx context.Context, q SearchQuery, emit func(*Tweet) er
 	return e.g.Search(ctx, q, emit)
 }
 
+// Article resolves an Article id through its linking post. SearchTimeline is
+// the supported discovery route for a non-owner session; the search hit is not
+// trusted until its embedded Article.ID matches id. The matching post is then
+// fetched through TweetDetail to obtain the full body and structured content.
+func (e *Engine) Article(ctx context.Context, id string) (*Article, error) {
+	if !numericRe.MatchString(id) {
+		return nil, &NotFoundError{Kind: KindArticle, Ref: id, Why: "not an article id"}
+	}
+	if !e.cfg.HasSession() || e.cfg.Tier == "guest" || e.cfg.Tier == "0" || e.cfg.Tier == "1" ||
+		e.cfg.Tier == "syndication" || e.cfg.Tier == "web" || e.cfg.Tier == "oembed" {
+		return nil, needSession("reading an Article")
+	}
+
+	var linked *Tweet
+	query := `url:"x.com/i/article/` + id + `"`
+	err := e.g.Search(ctx, SearchQuery{Raw: query, Product: "Latest", Limit: 10}, func(t *Tweet) error {
+		if linked == nil && t.Article != nil && t.Article.ID == id {
+			linked = t
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if linked == nil {
+		return nil, &NotFoundError{Kind: KindArticle, Ref: id, Why: "no exact URL search hit contained this Article id"}
+	}
+
+	post, err := e.g.TweetDetailByID(ctx, linked.ID)
+	if err != nil {
+		return nil, err
+	}
+	if post.Article == nil || post.Article.ID != id {
+		return nil, &NotFoundError{Kind: KindArticle, Ref: id}
+	}
+	article := post.Article
+	detailMeta := article.Meta
+	article.Meta = linked.Article.Meta
+	for _, src := range detailMeta.Sources {
+		article.Stamp(7, src)
+	}
+	article.Identify(KindArticle, id)
+	article.Author = post.Author
+	copyPost := *post
+	copyPost.Article = nil
+	article.LinkedPost = &copyPost
+	return article, nil
+}
+
 // wantsConversationAPI reports whether to read the conversation with
 // TweetDetail rather than by walking it.
 //

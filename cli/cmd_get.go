@@ -72,6 +72,14 @@ func newGetCmd() kit.Command {
 func (a *App) read(out *render.Renderer, kind, id string) error {
 	e := a.engine()
 	switch kind {
+	case x.KindArticle:
+		sp := a.progress("fetching Article")
+		article, err := e.Article(a.ctx(), id)
+		sp.stop()
+		if err != nil {
+			return err
+		}
+		return out.Emit(articleRow(article))
 	case x.KindTweet, x.KindCard, x.KindNote:
 		// A card and a note are parts of a tweet rather than records with their
 		// own address, so the tweet that carries them is the answer.
@@ -133,6 +141,8 @@ func (a *App) read(out *render.Renderer, kind, id string) error {
 // however different they are as references.
 func rowShape(kind string) string {
 	switch kind {
+	case x.KindArticle:
+		return "article"
 	case x.KindUser:
 		return "user"
 	case x.KindPoll:

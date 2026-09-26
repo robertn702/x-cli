@@ -18,6 +18,7 @@ map. A `<ref>` is a tweet id, status URL, or anything x can resolve to a tweet; 
 |---|---|---|
 | `get <ref>...` | Read whatever each reference points at, with the command that fits | |
 | `tweet <ref>` | Show a single tweet | (Tier 0) |
+| `article <ref>` | Show a long-form X Article by bare id or `/i/article/` URL | (session) |
 | `user <user>` | Show a profile | `--id` |
 | `timeline <user>` | A user's tweets (recent window; deeper with `--guest`/session) | `--id`, `--replies`, `--media` |
 | `replies <ref>` | Replies to a tweet, or a user's own replies | `--id` |
@@ -47,6 +48,12 @@ map. A `<ref>` is a tweet id, status URL, or anything x can resolve to a tweet; 
 `--guest`, because the guest tier answers that read with an empty timeline
 rather than refusing it; only a session pages it deeper.
 
+`article` requires a session. X does not expose a generally usable direct
+Article-by-id operation: x searches for the exact `x.com/i/article/<id>` URL,
+verifies that the returned post embeds the requested Article id, then reads that
+post through `TweetDetail` for the full body. A valid id with no verified search
+hit exits as not found; x does not substitute an unrelated search result.
+
 `timeline` is the account's own tweets and nothing else. X renders a reply on a
 profile together with the tweet it answers, so the page carries both authors;
 listing the parent would mean `x timeline jack` printing tweets @jack did not
@@ -64,7 +71,8 @@ reads `--guest` is worth passing for.
 `get` classifies each argument the way `x classify` does and dispatches: a tweet
 id or status link reads the tweet, a handle reads the profile, a hashtag or a
 search link runs the search, a list link reads the list. A kind it has no reader
-for exits 7 rather than guessing. `media --size` takes
+for exits 7 rather than guessing. Article URLs dispatch to `article`; bare
+numeric values remain tweet ids. `media --size` takes
 `thumb|small|medium|large|orig` (default `orig`) and `--variant` names a video
 rendition by resolution or bitrate (default: the highest-bitrate MP4). With
 `--download`, `media` writes files and prints their paths, so the record flags
@@ -249,9 +257,9 @@ hand a network port.
 The first four print tables the binary carries rather than tables a doc carries,
 which is the point of them: what x says about itself and what x does come out of
 the same code, so a row that stops being true shows up as a wrong answer instead
-of a stale paragraph. `fields <kind>` takes `tweet` or `user` and is measured,
-not declared: the surface numbers on each row come from parsing the committed
-fixtures, so a field that only surface 4 fills says so.
+of a stale paragraph. `fields <kind>` takes `tweet`, `article`, or `user` and is
+measured, not declared: the surface numbers on each row come from parsing the
+committed fixtures, so a field that only surface 4 fills says so.
 
 `doctor` is the one that costs requests. It sends one real read to each of the
 eight surfaces and reports what came back, with the time it took and whatever

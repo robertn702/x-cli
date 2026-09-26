@@ -41,7 +41,7 @@ func (f Field) Tier() (int, bool) {
 }
 
 // FieldKinds is what `x fields` accepts, in the order it lists them.
-var FieldKinds = []string{KindTweet, KindUser}
+var FieldKinds = []string{KindTweet, KindArticle, KindUser}
 
 // Fields is the census for a kind, in declaration order, or nil for a kind that
 // has no record type.
@@ -50,6 +50,8 @@ func Fields(kind string) []Field {
 	switch kind {
 	case KindTweet:
 		t = reflect.TypeOf(Tweet{})
+	case KindArticle:
+		t = reflect.TypeOf(Article{})
 	case KindUser:
 		t = reflect.TypeOf(User{})
 	default:

@@ -71,6 +71,7 @@ func (t Term) empty() bool    { return t.IRI == "" && t.Blank == "" && t.Value =
 // MediaObject rather than a guess between image and video.
 var classOf = map[string]Term{
 	KindTweet:        schema("SocialMediaPosting"),
+	KindArticle:      schema("Article"),
 	KindUser:         schema("Person"),
 	KindMedia:        schema("MediaObject"),
 	KindLink:         schema("WebPage"),
@@ -219,6 +220,8 @@ func (b *builder) record(n GraphNode) {
 	switch r := n.Record.(type) {
 	case *Tweet:
 		b.tweet(iri(n.URI), r)
+	case *Article:
+		b.article(iri(n.URI), r)
 	case *User:
 		b.user(iri(n.URI), r)
 	case *Space:
@@ -258,6 +261,14 @@ func (b *builder) tweet(s Term, t *Tweet) {
 	for _, m := range t.Media {
 		b.media(iri(mediaURI(m)), m)
 	}
+}
+
+func (b *builder) article(s Term, a *Article) {
+	b.src = a.LastSource()
+	b.add(s, schema("identifier"), lit(a.ID))
+	b.add(s, schema("headline"), lit(a.Title))
+	b.add(s, schema("articleBody"), lit(a.Body))
+	b.add(s, schema("url"), iri(a.URL))
 }
 
 // media types a media node properly once there is a record to type it from.
@@ -351,6 +362,8 @@ func recordSource(rec any) string {
 func metaOf(rec any) (*Meta, bool) {
 	switch r := rec.(type) {
 	case *Tweet:
+		return &r.Meta, true
+	case *Article:
 		return &r.Meta, true
 	case *User:
 		return &r.Meta, true

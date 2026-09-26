@@ -53,7 +53,7 @@ func TestFieldSurfaces(t *testing.T) {
 // surfaces that produced a non-empty value.
 func measureSurfaces(t *testing.T) map[string]map[string][]int {
 	t.Helper()
-	out := map[string]map[string][]int{KindTweet: {}, KindUser: {}}
+	out := map[string]map[string][]int{KindTweet: {}, KindArticle: {}, KindUser: {}}
 	// Only census names, so the envelope stays out of the table. url and id are
 	// filled by the fetch on every surface alike, and saying so would pad every
 	// row with a fact about the tool rather than about X.
@@ -131,6 +131,18 @@ func measureSurfaces(t *testing.T) map[string]map[string][]int {
 		if json.Unmarshal(o, &r) == nil {
 			noteTweet(4, r.build())
 		}
+	}
+
+	// Surface 7, a session TweetDetail carrying an Article. The two relationship
+	// fields are normalized by Engine.Article from the same response.
+	if tweets, _ := collectTweets([]byte(articleTweetDetail)); len(tweets) == 1 && tweets[0].Article != nil {
+		tw := tweets[0]
+		a := tw.Article
+		a.Author = tw.Author
+		linked := *tw
+		linked.Article = nil
+		a.LinkedPost = &linked
+		note(KindArticle, 7, a)
 	}
 
 	// Surface 8, an x.com page. The status page carries the tweet, the profile
@@ -244,9 +256,9 @@ func renderFieldsGen(got map[string]map[string][]int) []byte {
 package x
 
 // fieldSurfaces is which surface has been observed to fill which field, measured
-// by decoding the committed fixtures in testdata: the syndication tweet and
-// profile timeline, the guest GraphQL profile and timeline, and the x.com status
-// and profile pages.
+// by decoding the committed sanitized fixtures: the syndication tweet and
+// profile timeline, the guest GraphQL profile and timeline, the session Article,
+// and the x.com status and profile pages.
 //
 // It is evidence, not a promise. A field with no surfaces is one no fixture has
 // shown filled, which usually means the plane that carries it is not built yet,
@@ -343,7 +355,7 @@ func TestFieldsCensus(t *testing.T) {
 		if seen["metrics"] {
 			t.Errorf("%s lists metrics as a row instead of expanding it", kind)
 		}
-		if !seen["likes"] {
+		if kind != KindArticle && !seen["likes"] {
 			t.Errorf("%s does not list likes, so metrics was not expanded", kind)
 		}
 	}

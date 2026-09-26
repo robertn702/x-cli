@@ -14,7 +14,7 @@ import (
 // tells a caller looping over a file of links nothing at all.
 func TestEveryKindHasAnAnswer(t *testing.T) {
 	readable := map[string]bool{
-		x.KindTweet: true, x.KindCard: true, x.KindNote: true, x.KindPoll: true,
+		x.KindTweet: true, x.KindArticle: true, x.KindCard: true, x.KindNote: true, x.KindPoll: true,
 		x.KindUser: true, x.KindConversation: true, x.KindHashtag: true,
 		x.KindCashtag: true, x.KindSearch: true, x.KindList: true,
 		x.KindSpace: true,
@@ -53,6 +53,18 @@ func TestNoReaderNamesTheKind(t *testing.T) {
 
 // media takes a tweet or a profile. Everything else is the caller's mistake and
 // gets exit 2, not a request.
+func TestArticleRowIsDistinctFromTweetRow(t *testing.T) {
+	a := &x.Article{Title: "Long title", Body: "Long body", Author: x.NewUser("leo"), LinkedPost: x.NewTweet("20")}
+	a.Identify(x.KindArticle, "10")
+	row := articleRow(a)
+	if len(row.Cols) == 0 || row.Cols[0] != "id" || row.Vals[0] != "10" || row.Value != a {
+		t.Fatalf("article row = %+v", row)
+	}
+	if rowShape(x.KindArticle) != "article" {
+		t.Errorf("article row shape = %q", rowShape(x.KindArticle))
+	}
+}
+
 func TestMediaRefTakesATweetOrAProfile(t *testing.T) {
 	for _, c := range []struct {
 		arg      string

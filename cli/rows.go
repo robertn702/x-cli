@@ -30,6 +30,21 @@ func tweetRow(t *x.Tweet) Row {
 	}
 }
 
+func articleRow(a *x.Article) Row {
+	author, post := "", ""
+	if a.Author != nil {
+		author = a.Author.Username
+	}
+	if a.LinkedPost != nil {
+		post = a.LinkedPost.ID
+	}
+	return Row{
+		Cols:  []string{"id", "author", "post", "title", "body", "url"},
+		Vals:  []string{a.ID, author, post, oneline(a.Title), oneline(a.Body), a.URL},
+		Value: a,
+	}
+}
+
 func userRow(u *x.User) Row {
 	cols := []string{"username", "name", "followers", "following", "tweets", "verified", "url"}
 	vals := []string{

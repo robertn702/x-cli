@@ -8,7 +8,7 @@ import (
 // meta.go is the envelope every record carries (spec 3003 doc 03 section 1).
 //
 // It is what makes `x get`, `-o url`, the graph plane and the RDF writers work
-// the same way across all sixteen kinds: whatever came back, it has a kind, an
+// the same way across all seventeen node kinds: whatever came back, it has a kind, an
 // id, an address in x's own space, an address on the web, and a record of what
 // it cost to know and where each part of it came from.
 //
@@ -195,6 +195,9 @@ func stampTweet(t *Tweet, surface int, src string) {
 		return
 	}
 	t.Stamp(surface, src)
+	if t.Article != nil {
+		t.Article.Stamp(surface, src)
+	}
 	stampUser(t.Author, surface, src)
 	stampTweet(t.Quoted, surface, src)
 	stampTweet(t.Retweeted, surface, src)

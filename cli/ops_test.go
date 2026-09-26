@@ -23,7 +23,7 @@ func TestServeAndMCPHaveTheReads(t *testing.T) {
 	}
 	// The spread matters more than the count: a single tweet read, a read that
 	// takes a user, a search, a graph read, and one off the trends surface.
-	for _, want := range []string{"tweet", "user", "timeline", "thread", "search", "edges", "graph", "trends"} {
+	for _, want := range []string{"tweet", "article", "user", "timeline", "thread", "search", "edges", "graph", "trends"} {
 		if !got[want] {
 			t.Errorf("no %q operation, so neither serve nor mcp answers it", want)
 		}

@@ -98,6 +98,11 @@ func emitConflicts(out *render.Renderer, es []x.Edge) error {
 func (a *App) record(kind, id string) (any, error) {
 	e := a.engine()
 	switch kind {
+	case x.KindArticle:
+		sp := a.progress("fetching Article")
+		article, err := e.Article(a.ctx(), id)
+		sp.stop()
+		return article, err
 	case x.KindTweet, x.KindCard, x.KindNote, x.KindPoll:
 		sp := a.progress("fetching tweet")
 		t, err := e.Tweet(a.ctx(), id)

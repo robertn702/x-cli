@@ -21,6 +21,7 @@ func readCommands() []kit.Command {
 	return []kit.Command{
 		newGetCmd(),
 		newTweetCmd(),
+		newArticleCmd(),
 		newTimelineCmd(),
 		newRepliesCmd(),
 		newMediaCmd(),
@@ -35,6 +36,33 @@ func readCommands() []kit.Command {
 		newCountsCmd(),
 		newListCmd(),
 		newSpaceCmd(),
+	}
+}
+
+// newArticleCmd reads one long-form Article through its linking post.
+func newArticleCmd() kit.Command {
+	return kit.Command{
+		Use:   "article <ref>",
+		Short: "Show an X Article (session only)",
+		Long: "article accepts a bare Article id or an x.com/i/article URL. It uses exact URL search " +
+			"to find the linking post, verifies the embedded Article id, then reads that post through " +
+			"TweetDetail for the full body. X does not expose this as a direct Article-by-id read.",
+		Args: kit.ExactArgs(1),
+		Run: func(ctx context.Context, args []string) error {
+			a := appFromCtx(ctx)
+			id, err := x.ParseArticleRef(args[0])
+			if err != nil {
+				return errs.Usage("%s", err.Error())
+			}
+			a.target = id
+			sp := a.progress("fetching Article")
+			article, err := a.engine().Article(a.ctx(), id)
+			sp.stop()
+			if err != nil {
+				return a.done(err)
+			}
+			return a.done(a.emitOne(articleRow(article)))
+		},
 	}
 }
 

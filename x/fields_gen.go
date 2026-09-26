@@ -3,9 +3,9 @@
 package x
 
 // fieldSurfaces is which surface has been observed to fill which field, measured
-// by decoding the committed fixtures in testdata: the syndication tweet and
-// profile timeline, the guest GraphQL profile and timeline, and the x.com status
-// and profile pages.
+// by decoding the committed sanitized fixtures: the syndication tweet and
+// profile timeline, the guest GraphQL profile and timeline, the session Article,
+// and the x.com status and profile pages.
 //
 // It is evidence, not a promise. A field with no surfaces is one no fixture has
 // shown filled, which usually means the plane that carries it is not built yet,
@@ -32,6 +32,15 @@ var fieldSurfaces = map[string]map[string][]int{
 		"retweets":        {2, 4, 8},
 		"source":          {4},
 		"text":            {1, 2, 3, 4, 8},
+	},
+	"article": {
+		"author":        {7},
+		"body":          {7},
+		"content_state": {7},
+		"cover":         {7},
+		"linked_post":   {7},
+		"media":         {7},
+		"title":         {7},
 	},
 	"user": {
 		"created_at":     {2, 4, 8},

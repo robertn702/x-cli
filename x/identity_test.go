@@ -115,6 +115,7 @@ func TestLocateIsAFixedPoint(t *testing.T) {
 func TestURIRoundTrips(t *testing.T) {
 	ids := map[string]string{
 		KindTweet:        "20",
+		KindArticle:      "2103118352554344448",
 		KindUser:         "jack",
 		KindConversation: "1833951636005552366",
 		KindMedia:        "3_2080776588996563188",
@@ -176,6 +177,23 @@ func TestClassifyAmbiguityRules(t *testing.T) {
 
 // Every case in the corpus must classify, and nothing outside it should be
 // silently accepted as a node.
+func TestArticleURLHasItsOwnIdentity(t *testing.T) {
+	for _, in := range []string{
+		"https://x.com/i/article/2103118352554344448",
+		"https://twitter.com/i/article/2103118352554344448",
+		"x://article/2103118352554344448",
+	} {
+		kind, id, err := Classify(in)
+		if err != nil || kind != KindArticle || id != "2103118352554344448" {
+			t.Errorf("Classify(%q) = (%s, %s, %v), want article", in, kind, id, err)
+		}
+	}
+	u, err := Locate(KindArticle, "2103118352554344448")
+	if err != nil || u != "https://x.com/i/article/2103118352554344448" {
+		t.Errorf("Locate(article) = %q, %v", u, err)
+	}
+}
+
 func TestClassifyRejectsJunk(t *testing.T) {
 	for _, in := range []string{"", "   ", "@", "#", "$", "x://", "x://nope/1", "@this-handle-is-far-too-long"} {
 		if kind, id, err := Classify(in); err == nil {

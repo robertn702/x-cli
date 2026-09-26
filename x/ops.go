@@ -60,6 +60,11 @@ type tweetRef struct {
 	Engine *Engine `kit:"inject"`
 }
 
+type articleRef struct {
+	Ref    string  `kit:"arg" help:"Article id or i/article URL"`
+	Engine *Engine `kit:"inject"`
+}
+
 type userRef struct {
 	Ref    string  `kit:"arg" help:"@handle, user id, or profile URL"`
 	ByID   bool    `kit:"flag" help:"treat the reference as a numeric user id"`
@@ -85,6 +90,10 @@ func registerTweetOps(app *kit.App, o OpOptions) {
 	handle(app, o, kit.OpMeta{Name: "tweet", Group: "read", Single: true,
 		Summary: "Read one tweet", URIType: KindTweet, Resolver: true,
 		Args: []kit.Arg{{Name: "ref", Help: "tweet id or status URL"}}}, getTweet)
+
+	handle(app, o, kit.OpMeta{Name: "article", Group: "read", Single: true,
+		Summary: "Read one X Article (session)", URIType: KindArticle, Resolver: true,
+		Args: []kit.Arg{{Name: "ref", Help: "Article id or i/article URL"}}}, getArticle)
 
 	handle(app, o, kit.OpMeta{Name: "thread", Group: "read", List: true,
 		Summary: "Read the conversation around a tweet", URIType: KindTweet,
@@ -129,6 +138,18 @@ func getTweet(ctx context.Context, in tweetRef, emit func(*Tweet) error) error {
 		return mapErr(err)
 	}
 	return emit(t)
+}
+
+func getArticle(ctx context.Context, in articleRef, emit func(*Article) error) error {
+	id, err := ParseArticleRef(in.Ref)
+	if err != nil {
+		return errs.Usage("%s", err.Error())
+	}
+	a, err := in.Engine.Article(ctx, id)
+	if err != nil {
+		return mapErr(err)
+	}
+	return emit(a)
 }
 
 func listThread(ctx context.Context, in tweetRef, emit func(*Tweet) error) error {
@@ -420,6 +441,8 @@ func readRef(ctx context.Context, e *Engine, ref string) (any, error) {
 	switch kind {
 	case KindTweet:
 		return e.Tweet(ctx, id)
+	case KindArticle:
+		return e.Article(ctx, id)
 	case KindUser:
 		return e.User(ctx, id, false)
 	case KindSpace:

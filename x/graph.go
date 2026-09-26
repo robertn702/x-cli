@@ -165,6 +165,8 @@ func Edges(rec any) []Edge {
 	switch r := rec.(type) {
 	case *Tweet:
 		return tweetEdges(r)
+	case *Article:
+		return articleEdges(r)
 	case *User:
 		return userEdges(r)
 	case *Space:
@@ -298,6 +300,9 @@ func tweetEdges(t *Tweet) []Edge {
 	for _, m := range t.Media {
 		e.add(self, PredHasMedia, mediaURI(m))
 	}
+	if t.Article != nil && t.Article.ID != "" {
+		e.add(self, PredLinksTo, URI(KindArticle, t.Article.ID))
+	}
 	if t.Poll != nil {
 		e.add(self, PredHasPoll, URI(KindPoll, t.ID))
 	}
@@ -308,6 +313,21 @@ func tweetEdges(t *Tweet) []Edge {
 	out = append(out, tweetEdges(t.Quoted)...)
 	out = append(out, tweetEdges(t.Retweeted)...)
 	return out
+}
+
+func articleEdges(a *Article) []Edge {
+	if a == nil || a.ID == "" {
+		return nil
+	}
+	e := &emitter{meta: &a.Meta}
+	self := URI(KindArticle, a.ID)
+	if a.Author != nil {
+		e.add(userURI(a.Author.Username), PredAuthored, self)
+	}
+	if a.LinkedPost != nil {
+		e.add(URI(KindTweet, a.LinkedPost.ID), PredLinksTo, self)
+	}
+	return e.out
 }
 
 func userEdges(u *User) []Edge {

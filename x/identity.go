@@ -17,10 +17,11 @@ import (
 // same tweet read anonymously and read with a session is one node. And
 // Classify(URI(k, i)) returns (k, i) for every kind.
 
-// The sixteen kinds that have a URI, plus search, which classifies but does not
+// The seventeen kinds that have a URI, plus search, which classifies but does not
 // get one because a search is a query rather than a thing.
 const (
 	KindTweet        = "tweet"
+	KindArticle      = "article"
 	KindUser         = "user"
 	KindConversation = "conversation"
 	KindMedia        = "media"
@@ -41,7 +42,7 @@ const (
 
 // Kinds is every kind Classify can return, in the order doc 04 lists them.
 var Kinds = []string{
-	KindTweet, KindUser, KindConversation, KindMedia, KindPoll, KindCard,
+	KindTweet, KindArticle, KindUser, KindConversation, KindMedia, KindPoll, KindCard,
 	KindHashtag, KindCashtag, KindLink, KindList, KindSpace, KindBroadcast,
 	KindTrend, KindPlace, KindNote, KindCommunity, KindSearch,
 }
@@ -138,6 +139,8 @@ func Locate(kind, id string) (string, error) {
 		return "", fmt.Errorf("no id for kind %q", kind)
 	}
 	switch kind {
+	case KindArticle:
+		return "https://x.com/i/article/" + id, nil
 	case KindTweet, KindConversation, KindPoll, KindCard, KindNote:
 		return "https://x.com/i/status/" + id, nil
 	case KindUser:
@@ -314,6 +317,10 @@ func classifyIPath(segs []string) (string, string, bool) {
 		return "", "", false
 	}
 	switch strings.ToLower(segs[0]) {
+	case "article":
+		if len(segs) > 1 && numericRe.MatchString(segs[1]) {
+			return KindArticle, segs[1], true
+		}
 	case "status", "statuses":
 		if len(segs) > 1 && numericRe.MatchString(segs[1]) {
 			return KindTweet, segs[1], true

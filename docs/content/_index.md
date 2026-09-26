@@ -45,7 +45,7 @@ read-only, and the binary is pure Go with no runtime dependencies.
   prints those claims and the nodes they address, and `x rdf` and
   `x export --format` write either one as RDF in schema.org's vocabulary.
 - **Serve it.** `x serve` puts the reads on HTTP as NDJSON and `x mcp` puts the
-  same 24 in front of an agent as MCP tools, both at whatever tier you pass.
+  same reads in front of an agent as MCP tools, both at whatever tier you pass.
 
 ## Where to go next
 

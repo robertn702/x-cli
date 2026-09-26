@@ -3,6 +3,7 @@ package x
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -26,6 +27,7 @@ const articleTweetDetail = `{
                     "id_str": "2103529310208606701",
                     "full_text": "A tweet linking to an article"
                   },
+                  "core": {"user_results": {"result": {"rest_id": "42", "legacy": {"screen_name": "leomeethewoo", "name": "Leo"}}}},
                   "article": {
                     "article_results": {
                       "result": {
@@ -140,6 +142,8 @@ func TestTweetDetailExposesLinkedArticle(t *testing.T) {
 
 type articleTransport struct {
 	operations []string
+	queries    []string
+	searchBody string
 }
 
 func (f *articleTransport) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -149,10 +153,107 @@ func (f *articleTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if strings.Contains(r.URL.Path, "/i/api/graphql/") {
 		f.operations = append(f.operations, r.URL.Path)
 	}
+	if strings.HasSuffix(r.URL.Path, "/SearchTimeline") {
+		var variables map[string]any
+		_ = json.Unmarshal([]byte(r.URL.Query().Get("variables")), &variables)
+		f.queries = append(f.queries, variables["rawQuery"].(string))
+		body := f.searchBody
+		if body == "" {
+			body = articleTweetDetail
+		}
+		return reply(r, body, "application/json", "")
+	}
 	if strings.HasSuffix(r.URL.Path, "/TweetDetail") {
 		return reply(r, articleTweetDetail, "application/json", "")
 	}
 	return reply(r, "", "application/json", "")
+}
+
+func TestArticleLookupSearchesExactURLThenFetchesLinkedPost(t *testing.T) {
+	cfg := fixtureCfg(t)
+	cfg.AuthToken = "test-auth-token"
+	cfg.CT0 = "test-csrf-token"
+	cfg.Tier = "session"
+	e := NewEngine(cfg)
+	transport := &articleTransport{}
+	e.c.hc.Transport = transport
+
+	article, err := e.Article(context.Background(), "2103118352554344448")
+	if err != nil {
+		t.Fatalf("Article: %v", err)
+	}
+	if len(transport.queries) != 1 || transport.queries[0] != `url:"x.com/i/article/2103118352554344448"` {
+		t.Fatalf("search queries = %q", transport.queries)
+	}
+	if len(transport.operations) != 2 || !strings.HasSuffix(transport.operations[0], "/SearchTimeline") || !strings.HasSuffix(transport.operations[1], "/TweetDetail") {
+		t.Fatalf("operations = %v", transport.operations)
+	}
+	if article.Kind != KindArticle || article.ID != "2103118352554344448" || article.URI != "x://article/2103118352554344448" {
+		t.Errorf("identity = %+v", article.Meta)
+	}
+	if article.Body == "" || article.Author == nil || article.Author.Username != "leomeethewoo" {
+		t.Errorf("normalized article = %+v", article)
+	}
+	if article.LinkedPost == nil || article.LinkedPost.ID != "2103529310208606701" || article.LinkedPost.Article != nil {
+		t.Errorf("linked post = %+v", article.LinkedPost)
+	}
+	if article.Tier != 2 || len(article.Sources) == 0 || !strings.Contains(article.Sources[len(article.Sources)-1], "/TweetDetail") {
+		t.Errorf("provenance = %+v", article.Meta)
+	}
+}
+
+func TestArticleLookupRequiresSessionBeforeSearch(t *testing.T) {
+	cfg := fixtureCfg(t)
+	e := NewEngine(cfg)
+	transport := &articleTransport{}
+	e.c.hc.Transport = transport
+	_, err := e.Article(context.Background(), "2103118352554344448")
+	var need *NeedAuthError
+	if !errors.As(err, &need) || need.Tier != 2 {
+		t.Fatalf("error = %v, want tier-2 requirement", err)
+	}
+	if len(transport.operations) != 0 {
+		t.Errorf("made requests without a session: %v", transport.operations)
+	}
+}
+
+func TestArticleLookupWithStoredSessionStillHonorsGuestTier(t *testing.T) {
+	cfg := fixtureCfg(t)
+	cfg.AuthToken = "test-auth-token"
+	cfg.CT0 = "test-csrf-token"
+	cfg.Tier = "guest"
+	e := NewEngine(cfg)
+	transport := &articleTransport{}
+	e.c.hc.Transport = transport
+	_, err := e.Article(context.Background(), "2103118352554344448")
+	var need *NeedAuthError
+	if !errors.As(err, &need) || need.Tier != 2 {
+		t.Fatalf("error = %v, want tier-2 requirement", err)
+	}
+	if len(transport.operations) != 0 {
+		t.Errorf("guest tier silently used stored session: %v", transport.operations)
+	}
+}
+
+func TestArticleLookupRejectsSearchHitForAnotherArticle(t *testing.T) {
+	cfg := fixtureCfg(t)
+	cfg.AuthToken = "test-auth-token"
+	cfg.CT0 = "test-csrf-token"
+	cfg.Tier = "session"
+	e := NewEngine(cfg)
+	transport := &articleTransport{}
+	e.c.hc.Transport = transport
+	_, err := e.Article(context.Background(), "2103875664801591296")
+	var nf *NotFoundError
+	if !errors.As(err, &nf) || nf.Kind != KindArticle || nf.Ref != "2103875664801591296" {
+		t.Fatalf("error = %v, want article not found", err)
+	}
+	if !strings.Contains(nf.Why, "exact URL search") {
+		t.Errorf("not-found reason = %q", nf.Why)
+	}
+	if len(transport.operations) != 1 || !strings.HasSuffix(transport.operations[0], "/SearchTimeline") {
+		t.Errorf("mismatched hit should not be fetched: %v", transport.operations)
+	}
 }
 
 func TestSessionTierTweetUsesTweetDetailForArticleBody(t *testing.T) {

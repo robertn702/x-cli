@@ -87,6 +87,14 @@ func carry(rec any, into map[string]any) {
 		carry(r.Author, into)
 		carry(r.Quoted, into)
 		carry(r.Retweeted, into)
+		carry(r.Article, into)
+	case *Article:
+		if r == nil || r.ID == "" {
+			return
+		}
+		into[URI(KindArticle, r.ID)] = r
+		carry(r.Author, into)
+		carry(r.LinkedPost, into)
 	case *User:
 		if r == nil || r.Username == "" {
 			return
