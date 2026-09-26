@@ -32,6 +32,8 @@ const articleTweetDetail = `{
                         "rest_id": "2103118352554344448",
                         "title": "A useful article",
                         "plain_text": "First paragraph.\n\nSecond paragraph.",
+                        "content_state": {"blocks": [{"text": "First paragraph."}], "entityMap": [{"key": "0", "value": {"type": "LINK", "data": {"url": "https://example.com"}}}]},
+                        "cover_media": {"media_key": "3_1000", "media_info": {"__typename": "ApiImage", "original_img_url": "https://pbs.twimg.com/media/cover.jpg"}},
                         "media_entities": [
                           {
                             "media_id": "1001",
@@ -60,6 +62,10 @@ const articleTweetDetail = `{
                                 "url": "https://video.twimg.com/article/example.mp4"
                               }]
                             }
+                          },
+                          {
+                            "media_key": "13_1003",
+                            "media_info": {"__typename": "ApiGif", "preview_image": {"original_img_url": "https://pbs.twimg.com/media/gif.jpg"}, "variants": [{"content_type": "video/mp4", "url": "https://video.twimg.com/article/gif.mp4"}]}
                           }
                         ]
                       }
@@ -93,8 +99,17 @@ func TestTweetDetailExposesLinkedArticle(t *testing.T) {
 	if article.Body != "First paragraph.\n\nSecond paragraph." {
 		t.Errorf("article body = %q", article.Body)
 	}
-	if len(article.Media) != 2 {
-		t.Fatalf("got %d article media, want 2", len(article.Media))
+	if article.URL != "https://x.com/i/article/2103118352554344448" {
+		t.Errorf("article url = %q", article.URL)
+	}
+	if len(article.ContentState) == 0 || !strings.Contains(string(article.ContentState), "https://example.com") {
+		t.Errorf("article structured content = %s", article.ContentState)
+	}
+	if article.Cover == nil || article.Cover.URL != "https://pbs.twimg.com/media/cover.jpg" {
+		t.Errorf("article cover = %+v", article.Cover)
+	}
+	if len(article.Media) != 3 {
+		t.Fatalf("got %d article media, want 3", len(article.Media))
 	}
 	image, video := article.Media[0], article.Media[1]
 	if image.Type != "photo" || image.URL != "https://pbs.twimg.com/media/example.jpg" || image.Width != 1200 || image.Height != 675 {
@@ -105,6 +120,9 @@ func TestTweetDetailExposesLinkedArticle(t *testing.T) {
 	}
 	if len(video.Variants) != 1 || video.Variants[0].Bitrate != 832000 || video.Variants[0].URL != "https://video.twimg.com/article/example.mp4" {
 		t.Errorf("video variants = %+v", video.Variants)
+	}
+	if gif := article.Media[2]; gif.Type != "animated_gif" || len(gif.Variants) != 1 {
+		t.Errorf("gif = %+v", gif)
 	}
 
 	encoded, err := json.Marshal(tweets[0])
@@ -137,10 +155,11 @@ func (f *articleTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return reply(r, "", "application/json", "")
 }
 
-func TestSignedInTweetUsesTweetDetailForArticleBody(t *testing.T) {
+func TestSessionTierTweetUsesTweetDetailForArticleBody(t *testing.T) {
 	cfg := fixtureCfg(t)
 	cfg.AuthToken = "test-auth-token"
 	cfg.CT0 = "test-csrf-token"
+	cfg.Tier = "session"
 	c := NewClient(cfg)
 	transport := &articleTransport{}
 	c.hc.Transport = transport
@@ -155,6 +174,21 @@ func TestSignedInTweetUsesTweetDetailForArticleBody(t *testing.T) {
 	}
 	if len(transport.operations) != 1 || !strings.HasSuffix(transport.operations[0], "/TweetDetail") {
 		t.Errorf("GraphQL operations = %v, want TweetDetail", transport.operations)
+	}
+}
+
+func TestGuestTierHonoredWithStoredSession(t *testing.T) {
+	cfg := fixtureCfg(t)
+	cfg.AuthToken = "test-auth-token"
+	cfg.CT0 = "test-csrf-token"
+	cfg.Tier = "guest"
+	c := NewClient(cfg)
+	transport := &articleTransport{}
+	c.hc.Transport = transport
+	g := NewGraphQL(c, NewSession(cfg), cfg)
+	_, _ = g.TweetByID(context.Background(), "2103529310208606701")
+	if len(transport.operations) == 0 || !strings.HasSuffix(transport.operations[0], "/TweetResultByRestId") {
+		t.Errorf("guest tier operations = %v, want TweetResultByRestId", transport.operations)
 	}
 }
 

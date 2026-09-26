@@ -282,6 +282,8 @@ type gqlArticle struct {
 	RestID        string            `json:"rest_id"`
 	Title         string            `json:"title"`
 	PlainText     string            `json:"plain_text"`
+	ContentState  json.RawMessage   `json:"content_state"`
+	CoverMedia    *gqlArticleMedia  `json:"cover_media"`
 	MediaEntities []gqlArticleMedia `json:"media_entities"`
 }
 
@@ -311,34 +313,52 @@ func (a *gqlArticle) build() *Article {
 	if a == nil {
 		return nil
 	}
-	out := &Article{ID: a.RestID, Title: a.Title, Body: a.PlainText}
+	out := &Article{ID: a.RestID, Title: a.Title, Body: a.PlainText, ContentState: a.ContentState}
+	if a.RestID != "" {
+		out.URL = "https://x.com/i/article/" + a.RestID
+	}
+	if a.CoverMedia != nil {
+		out.Cover = a.CoverMedia.media()
+	}
 	for _, entity := range a.MediaEntities {
-		m := Media{Key: entity.MediaKey}
-		switch entity.Info.Typename {
-		case "ApiImage":
-			m.Type = "photo"
-			m.URL = entity.Info.OriginalImageURL
-			m.Width = entity.Info.OriginalImageW
-			m.Height = entity.Info.OriginalImageH
-		case "ApiVideo":
-			m.Type = "video"
-			m.Preview = entity.Info.PreviewImage.OriginalImageURL
-			m.Width = entity.Info.PreviewImage.OriginalImageW
-			m.Height = entity.Info.PreviewImage.OriginalImageH
-			m.Duration = entity.Info.DurationMillis
-			for _, variant := range entity.Info.Variants {
-				if variant.URL != "" {
-					m.Variants = append(m.Variants, Variant{
-						Bitrate: variant.Bitrate, ContentType: variant.ContentType, URL: variant.URL,
-					})
-				}
-			}
-		default:
-			continue
+		if m := entity.media(); m != nil {
+			out.Media = append(out.Media, *m)
 		}
-		out.Media = append(out.Media, m)
 	}
 	return out
+}
+
+func (entity *gqlArticleMedia) media() *Media {
+	if entity == nil {
+		return nil
+	}
+	m := &Media{Key: entity.MediaKey}
+	switch entity.Info.Typename {
+	case "ApiImage":
+		m.Type = "photo"
+		m.URL = entity.Info.OriginalImageURL
+		m.Width = entity.Info.OriginalImageW
+		m.Height = entity.Info.OriginalImageH
+	case "ApiVideo", "ApiGif":
+		m.Type = "video"
+		if entity.Info.Typename == "ApiGif" {
+			m.Type = "animated_gif"
+		}
+		m.Preview = entity.Info.PreviewImage.OriginalImageURL
+		m.Width = entity.Info.PreviewImage.OriginalImageW
+		m.Height = entity.Info.PreviewImage.OriginalImageH
+		m.Duration = entity.Info.DurationMillis
+		for _, variant := range entity.Info.Variants {
+			if variant.URL != "" {
+				m.Variants = append(m.Variants, Variant{
+					Bitrate: variant.Bitrate, ContentType: variant.ContentType, URL: variant.URL,
+				})
+			}
+		}
+	default:
+		return nil
+	}
+	return m
 }
 
 type gqlResultWrap struct {
@@ -611,9 +631,9 @@ func collectUsers(b []byte) ([]*User, string) {
 
 // ---- single-object reads ----
 
-// TweetByID resolves one tweet via TweetResultByRestId for guests and
-// TweetDetail for signed-in sessions. TweetResultByRestId only carries Article
-// metadata; TweetDetail is the surface that includes its title, body and media.
+// TweetByID uses TweetDetail only when the session surface is explicitly
+// requested. The default and guest reads retain TweetResultByRestId; that
+// response carries Article metadata but not its full body.
 func (g *GraphQL) TweetByID(ctx context.Context, id string) (*Tweet, error) {
 	op := "TweetResultByRestId"
 	variables := map[string]any{
@@ -622,7 +642,7 @@ func (g *GraphQL) TweetByID(ctx context.Context, id string) (*Tweet, error) {
 		"includePromotedContent": false,
 		"withVoice":              false,
 	}
-	if g.s.IsUser() {
+	if g.cfg.Tier == "session" {
 		op = "TweetDetail"
 		variables = tweetDetailVariables(id, "")
 	}

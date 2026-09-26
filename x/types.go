@@ -8,7 +8,10 @@
 // never a tier's wire shape directly.
 package x
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Tweet (a Post) is the central object. IDs are always strings: an X snowflake
 // does not fit in a JSON number without silent corruption in jq/JavaScript.
@@ -54,10 +57,13 @@ type Tweet struct {
 // The article id is retained as data, not treated as a separately resolvable
 // API reference: the supported read starts from its tweet.
 type Article struct {
-	ID    string  `json:"id,omitempty"`
-	Title string  `json:"title"`
-	Body  string  `json:"body" kit:"body"`
-	Media []Media `json:"media,omitempty"`
+	ID           string          `json:"id,omitempty"`
+	URL          string          `json:"url,omitempty"`
+	Title        string          `json:"title"`
+	Body         string          `json:"body" kit:"body"`
+	ContentState json.RawMessage `json:"content_state,omitempty"`
+	Cover        *Media          `json:"cover,omitempty"`
+	Media        []Media         `json:"media,omitempty"`
 }
 
 // Metrics are the engagement counts on a tweet.
